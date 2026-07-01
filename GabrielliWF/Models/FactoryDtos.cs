@@ -71,3 +71,31 @@ public class CrnDto
     public string? CrDsc { get; set; }
     public int? IdDmp { get; set; }
 }
+
+public class DisponibilitaDto
+{
+    public int Id { get; set; }
+    public int IdCrn { get; set; }
+    public string CodiceRint { get; set; } = "";
+    public string? DescrMateriale { get; set; }
+    public string? DescrizioneArticolo { get; set; }
+    public string? Magazzino { get; set; }
+    public decimal QtaDisp { get; set; }
+    public decimal QtaResidua { get; set; }
+    public decimal QtaImpegnata { get; set; }
+    public decimal Lunghezza { get; set; }
+    public decimal Larghezza { get; set; }
+    public decimal Spessore { get; set; }
+    public string? Qualita { get; set; }
+    public string? Difetto { get; set; }
+    public string? A1 { get; set; }
+    public string? A2 { get; set; }
+    public string? A3 { get; set; }
+    public string? A4 { get; set; }
+    public string? A5 { get; set; }
+    public string? A6 { get; set; }
+    public string? A7 { get; set; }
+    public string? A8 { get; set; }
+    public string? A13 { get; set; }
+    public string? A14 { get; set; }
+}

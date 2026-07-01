@@ -126,6 +126,40 @@ public class FactoryLookupService(IConfiguration config)
         return rows.ToList();
     }
 
+    public async Task<List<DisponibilitaDto>> GetDisponibilitaAsync()
+    {
+        using var conn = Open();
+        var sql = """
+            SELECT
+                ID                                              AS Id,
+                [RintracciabilitàFactory]                       AS IdCrn,
+                LTRIM(RTRIM([CodiceRintracciabilità]))          AS CodiceRint,
+                LTRIM(RTRIM(DescrMateriale))                    AS DescrMateriale,
+                DescrizioneArticolo,
+                LTRIM(RTRIM(Magazzino))                        AS Magazzino,
+                QtaDisp,
+                QuantitaResidua                                AS QtaResidua,
+                QauntitaImpegnata                              AS QtaImpegnata,
+                Lunghezza, Larghezza, Spessore,
+                LTRIM(RTRIM([Qualità]))                        AS Qualita,
+                LTRIM(RTRIM(Difetto))                          AS Difetto,
+                ISNULL(LTRIM(RTRIM(Alpha1)) ,'') AS A1,
+                ISNULL(LTRIM(RTRIM(Alpha2)) ,'') AS A2,
+                ISNULL(LTRIM(RTRIM(Alpha3)) ,'') AS A3,
+                ISNULL(LTRIM(RTRIM(Alpha4)) ,'') AS A4,
+                ISNULL(LTRIM(RTRIM(Alpha5)) ,'') AS A5,
+                ISNULL(LTRIM(RTRIM(Alpha6)) ,'') AS A6,
+                ISNULL(LTRIM(RTRIM(Alpha7)) ,'') AS A7,
+                ISNULL(LTRIM(RTRIM(Alpha8)) ,'') AS A8,
+                ISNULL(LTRIM(RTRIM(Alpha13)),'') AS A13,
+                ISNULL(LTRIM(RTRIM(Alpha14)),'') AS A14
+            FROM XV_DISPONIBILITA_SEMPLICE
+            WHERE QtaDisp > 0
+            ORDER BY [CodiceRintracciabilità]
+            """;
+        return (await conn.QueryAsync<DisponibilitaDto>(sql)).ToList();
+    }
+
     public async Task<List<AttributoValoreDto>> GetValoriAttributoAsync(int idAttributo)
     {
         using var conn = Open();

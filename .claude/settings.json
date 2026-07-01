@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(cd c:\\\\dev\\\\GabrielliWF\\\\GabrielliWF; dotnet build --no-restore -v q 2>&1 | Where-Object { $_ -match \"error\" } | Select-Object -First 10)"
+    ]
+  }
+}

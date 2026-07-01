@@ -1,0 +1,125 @@
+@inject ImpegnoService ImpegnoService
+@inject WorkflowService WorkflowService
+@inject TemplateService TemplateService
+
+<MudDialog>
+    <TitleContent>
+        <div class="d-flex align-center gap-2">
+            <MudIcon Icon="@Icons.Material.Filled.AddCircleOutline" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">Crea Impegno</MudText>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <!-- Info lamiera -->
+        <MudPaper Elevation="0" Class="pa-3 mb-3" Style="background:#f4f6f8; border-radius:6px">
+            <div style="font-size:0.82rem; display:flex; flex-wrap:wrap; gap:8px; align-items:center">
+                <span style="font-weight:700; color:#1565c0; font-size:0.9rem">@Lamiera.CodiceRint</span>
+                <span style="font-weight:500">@Lamiera.DescrMateriale</span>
+                @if (!string.IsNullOrEmpty(Lamiera.Qualita))
+                { <span style="background:#e8eaf6; color:#3949ab; border-radius:10px; padding:2px 9px; font-size:0.71rem; font-weight:700">@Lamiera.Qualita</span> }
+                <span style="color:#777">@Lamiera.Lunghezza.ToString("N0") × @Lamiera.Larghezza.ToString("N0") × @Lamiera.Spessore.ToString("N1") mm</span>
+                <span style="color:#888; font-size:0.78rem">@Lamiera.DescrizioneArticolo</span>
+            </div>
+        </MudPaper>
+
+        <MudGrid Spacing="2">
+            <MudItem xs="12" sm="6">
+                <MudNumericField T="decimal" Label="Quantità *" @bind-Value="_quantita"
+                    Variant="Variant.Outlined" Min="0.001m" Format="N3"
+                    HelperText="@($"Disponibile: {Lamiera.QtaDisp:N3}")" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField T="string" Label="Note" @bind-Value="_note"
+                    Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudSelect T="WfTemplate?" Label="Template workflow (opzionale)"
+                    @bind-Value="_template"
+                    ToStringFunc="@(t => t?.Nome ?? "")"
+                    Variant="Variant.Outlined"
+                    Clearable="true"
+                    AnchorOrigin="Origin.BottomLeft"
+                    HelperText="Se selezionato crea subito il workflow">
+                    <MudSelectItem Value="(WfTemplate?)null">— Nessun workflow —</MudSelectItem>
+                    @foreach (var t in _templates)
+                    {
+                        <MudSelectItem Value="(WfTemplate?)t">@t.Nome</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Cancel">Annulla</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+            StartIcon="@Icons.Material.Filled.Save"
+            Disabled="_saving" OnClick="Submit">
+            @(_saving ? "Salvataggio…" : "Crea Impegno")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public DisponibilitaDto Lamiera { get; set; } = null!;
+
+    private decimal _quantita;
+    private string? _note;
+    private WfTemplate? _template;
+    private List<WfTemplate> _templates = [];
+    private bool _saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _quantita = Lamiera.QtaDisp > 0 ? Lamiera.QtaDisp : 1m;
+        _templates = await TemplateService.GetAllAsync();
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        if (_quantita <= 0) return;
+        _saving = true;
+        try
+        {
+            var model = new ImpegnoCreateModel
+            {
+                IdCrn      = Lamiera.IdCrn,
+                CrCod      = Lamiera.CodiceRint,
+                PaCod      = null,
+                PaDsc      = Lamiera.DescrizioneArticolo,
+                JdeQuality = Lamiera.Qualita,
+                Quantita   = _quantita,
+                Note       = _note,
+                Riferimenti = []
+            };
+
+            var idImpegno = await ImpegnoService.CreateAsync(model, null);
+
+            if (_template is not null)
+            {
+                var full = await TemplateService.GetByIdAsync(_template.ID);
+                if (full is not null)
+                {
+                    var wfModel = new WorkflowCreateModel
+                    {
+                        Nome               = _template.Nome,
+                        IDTemplateCaricato = _template.ID,
+                        Steps              = full.Steps.OrderBy(s => s.Ordine).Select(s => new WorkflowStepModel
+                        {
+                            Ordine      = s.Ordine,
+                            IDStepDef   = s.IDStepDef,
+                            NomeStep    = s.StepDef?.Nome ?? s.NomeCustom ?? "",
+                            IDAttributo = s.IDAttributo
+                        }).ToList()
+                    };
+                    await WorkflowService.CreateAsync(idImpegno, wfModel, null);
+                }
+            }
+
+            MudDialog.Close(DialogResult.Ok(idImpegno));
+        }
+        finally { _saving = false; }
+    }
+}

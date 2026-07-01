@@ -1,0 +1,210 @@
+@page "/disponibilita"
+@inject FactoryLookupService Factory
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IDialogService Dialog
+
+<PageTitle>Disponibilità Lamiere</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="mt-3 px-3">
+    <div class="d-flex justify-space-between align-center mb-2">
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Inventory2" Class="mr-1" Style="vertical-align:middle" />
+            Disponibilità Lamiere
+        </MudText>
+        <div class="d-flex align-center gap-3">
+            @if (!_loading)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary">@_rows.Count righe disponibili</MudText>
+            }
+            <MudTextField @bind-Value="_search" Placeholder="Cerca rintracciabilità, materiale, desc…"
+                Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                Immediate="true" DebounceInterval="200"
+                Variant="Variant.Outlined" Margin="Margin.Dense"
+                Style="width:300px" Clearable="true" />
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">Caricamento giacenze in corso…</MudText>
+    }
+    else
+    {
+        <MudDataGrid T="DisponibilitaDto"
+            Items="_rows"
+            Hover="true"
+            Striped="true"
+            Dense="true"
+            Bordered="false"
+            Filterable="true"
+            FilterMode="DataGridFilterMode.ColumnFilterRow"
+            Sortable="true"
+            SortMode="SortMode.Multiple"
+            Groupable="true"
+            GroupExpanded="false"
+            QuickFilter="@QuickFilter"
+            Height="calc(100vh - 155px)"
+            Virtualize="true"
+            FixedHeader="true"
+            Class="disp-grid">
+            <Columns>
+
+                <!-- Rintracciabilità -->
+                <PropertyColumn Property="x => x.CodiceRint" Title="Rintracciabilità" Sortable="true" Groupable="false">
+                    <CellTemplate>
+                        <span class="disp-crint">@context.Item.CodiceRint</span>
+                    </CellTemplate>
+                </PropertyColumn>
+
+                <!-- Materiale (raggruppabile) -->
+                <PropertyColumn Property="x => x.DescrMateriale" Title="Materiale" Sortable="true" Groupable="true" />
+
+                <!-- Descrizione articolo -->
+                <PropertyColumn Property="x => x.DescrizioneArticolo" Title="Descrizione" Sortable="false" Groupable="false">
+                    <CellTemplate>
+                        <span class="disp-desc">@context.Item.DescrizioneArticolo</span>
+                    </CellTemplate>
+                </PropertyColumn>
+
+                <!-- Qualità (raggruppabile) -->
+                <PropertyColumn Property="x => x.Qualita" Title="Qualità" Sortable="true" Groupable="true">
+                    <CellTemplate>
+                        @if (!string.IsNullOrEmpty(context.Item.Qualita))
+                        {
+                            <span class="disp-qual">@context.Item.Qualita</span>
+                        }
+                    </CellTemplate>
+                </PropertyColumn>
+
+                <!-- Magazzino (raggruppabile) -->
+                <PropertyColumn Property="x => x.Magazzino" Title="Mag." Sortable="true" Groupable="true" />
+
+                <!-- Spessore (raggruppabile per filtro) -->
+                <PropertyColumn Property="x => x.Spessore" Title="Sp. (mm)" Sortable="true" Groupable="true">
+                    <CellTemplate>
+                        <span class="disp-num">@context.Item.Spessore.ToString("N1")</span>
+                    </CellTemplate>
+                </PropertyColumn>
+
+                <!-- Dimensioni L×W -->
+                <TemplateColumn Title="L × W (mm)" Sortable="false" Filterable="false" Groupable="false">
+                    <CellTemplate>
+                        <span class="disp-dim">
+                            @context.Item.Lunghezza.ToString("N0") × @context.Item.Larghezza.ToString("N0")
+                        </span>
+                    </CellTemplate>
+                </TemplateColumn>
+
+                <!-- Qta disponibile -->
+                <PropertyColumn Property="x => x.QtaDisp" Title="Qta Disp." Sortable="true" Groupable="false">
+                    <CellTemplate>
+                        <span class="disp-qta">@context.Item.QtaDisp.ToString("N3")</span>
+                    </CellTemplate>
+                </PropertyColumn>
+
+                <!-- Qta residua -->
+                <PropertyColumn Property="x => x.QtaResidua" Title="Residua" Sortable="true" Groupable="false">
+                    <CellTemplate>
+                        <span class="disp-num">@context.Item.QtaResidua.ToString("N3")</span>
+                    </CellTemplate>
+                </PropertyColumn>
+
+                <!-- Difetto -->
+                <PropertyColumn Property="x => x.Difetto" Title="Difetto" Sortable="true" Groupable="true">
+                    <CellTemplate>
+                        @if (!string.IsNullOrEmpty(context.Item.Difetto))
+                        {
+                            <span class="disp-difetto">@context.Item.Difetto</span>
+                        }
+                    </CellTemplate>
+                </PropertyColumn>
+
+                <!-- Alpha combinati -->
+                <TemplateColumn Title="Attributi" Sortable="false" Filterable="false" Groupable="false">
+                    <CellTemplate>
+                        <div class="disp-alphas">
+                            @foreach (var a in GetAlphas(context.Item))
+                            {
+                                <span class="disp-alpha">@a</span>
+                            }
+                        </div>
+                    </CellTemplate>
+                </TemplateColumn>
+
+                <!-- Azione -->
+                <TemplateColumn Title="" Sortable="false" Filterable="false" Groupable="false" StickyRight="true">
+                    <CellTemplate>
+                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
+                            StartIcon="@Icons.Material.Filled.AddCircleOutline"
+                            OnClick="@(() => Impegna(context.Item))">
+                            Impegna
+                        </MudButton>
+                    </CellTemplate>
+                </TemplateColumn>
+
+            </Columns>
+        </MudDataGrid>
+    }
+</MudContainer>
+
+<style>
+    .disp-crint  { font-weight: 700; color: #1565c0; font-size: 0.82rem; letter-spacing: 0.01em; white-space: nowrap; }
+    .disp-desc   { font-size: 0.78rem; color: #555; }
+    .disp-qual   { background: #e8eaf6; color: #3949ab; border-radius: 10px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; white-space: nowrap; }
+    .disp-num    { font-size: 0.8rem; color: #555; }
+    .disp-dim    { font-size: 0.78rem; color: #777; white-space: nowrap; }
+    .disp-qta    { font-weight: 700; color: #2e7d32; font-size: 0.82rem; }
+    .disp-difetto { font-size: 0.75rem; color: #c62828; background: #ffebee; border-radius: 8px; padding: 1px 7px; }
+    .disp-alphas { display: flex; flex-wrap: wrap; gap: 3px; }
+    .disp-alpha  { background: #f0f0f0; color: #555; border-radius: 8px; padding: 1px 6px; font-size: 0.69rem; font-weight: 600; white-space: nowrap; }
+    /* rimpicciolisce celle per la densità */
+    .disp-grid .mud-table-cell { padding: 4px 10px !important; }
+    .disp-grid .mud-table-head .mud-table-cell { padding: 6px 10px !important; font-size: 0.78rem; }
+</style>
+
+@code {
+    private List<DisponibilitaDto> _rows = [];
+    private bool _loading = true;
+    private string? _search;
+
+    private Func<DisponibilitaDto, bool> QuickFilter => x =>
+        string.IsNullOrEmpty(_search) ||
+        x.CodiceRint.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+        (x.DescrMateriale?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+        (x.DescrizioneArticolo?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+        (x.Qualita?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+        (x.Difetto?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        _rows = await Factory.GetDisponibilitaAsync();
+        _loading = false;
+    }
+
+    private static IEnumerable<string> GetAlphas(DisponibilitaDto r) =>
+        new[] { r.A1, r.A2, r.A3, r.A4, r.A5, r.A6, r.A7, r.A8, r.A13, r.A14 }
+        .Where(a => !string.IsNullOrEmpty(a))
+        .Distinct()!;
+
+    private async Task Impegna(DisponibilitaDto row)
+    {
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        };
+        var parameters = new DialogParameters { ["Lamiera"] = row };
+        var dialog = await Dialog.ShowAsync<ImpegnaDialog>("Crea Impegno", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result!.Canceled && result.Data is int idImpegno)
+        {
+            Snackbar.Add($"Impegno #{idImpegno} creato.", Severity.Success);
+            Nav.NavigateTo($"/avanzamento/{idImpegno}");
+        }
+    }
+}
