@@ -30,18 +30,24 @@ Il DB deve essere già creato tramite script SQL (non ci sono migrations EF).
 
 ## Configurazione
 
-Copiare `appsettings.Development.json.example` in `appsettings.Development.json` e impostare le stringhe di connessione:
+Editare `appsettings.json` con le stringhe di connessione corrette:
 
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=...;Database=GabrielliWF;...",
-    "IntesiFactory":     "Server=...;Database=Intesi-FACTORY;..."
+    "DefaultConnection": "Server=NOMESERVER;Database=GabrielliWF;User Id=utente;Password=pass;TrustServerCertificate=true;",
+    "IntesiFactory":     "Server=NOMESERVER;Database=Intesi-FACTORY;User Id=utente;Password=pass;TrustServerCertificate=true;"
   }
 }
 ```
 
-> ⚠️ `appsettings.Development.json` non viene committato (vedi `.gitignore`).
+## Installazione database
+
+Eseguire lo script `GabrielliWF_CreateDB.sql` su SQL Server con un utente che abbia il permesso `CREATE DATABASE`.
+
+Se il DBA crea il database vuoto in anticipo, lo script rileva l'esistenza del DB e crea solo le tabelle — l'utente applicativo deve avere `db_owner` sul database `GabrielliWF`.
+
+> ⚠️ Il database `Intesi-FACTORY` è read-only e deve già esistere sull'istanza SQL Server.
 
 ## Funzionalità principali
 
