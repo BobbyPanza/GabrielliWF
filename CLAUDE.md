@@ -93,6 +93,30 @@ Tutte le query cross-DB usano la sintassi `[Intesi-FACTORY].dbo.TableName`.
 | Microsoft.EntityFrameworkCore.SqlServer | 8.0.17 | ORM per GabrielliWF DB |
 | Dapper | 2.1.66 | Query read-only su Intesi-FACTORY |
 
+## Repository GitHub
+
+```
+https://github.com/BobbyPanza/GabrielliWF
+```
+
+### Pull delle ultime modifiche
+
+```powershell
+cd c:\dev\GabrielliWF
+git pull
+```
+
+### Committare e pushare modifiche
+
+```powershell
+cd c:\dev\GabrielliWF
+git add -A
+git commit -m "Descrizione della modifica"
+git push
+```
+
+> `appsettings.Development.json` è nel `.gitignore` — non viene mai committato.
+
 ## Come avviare
 
 ```powershell
