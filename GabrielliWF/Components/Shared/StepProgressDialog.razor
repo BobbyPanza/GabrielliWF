@@ -1,0 +1,107 @@
+@inject FactoryLookupService Factory
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Assignment" Class="mr-2" />
+            Avanzamento: @Model.NomeStep
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" Model="Model">
+            <MudGrid Spacing="2">
+                <MudItem xs="12">
+                    <MudSelect T="StatoStep?" Label="Stato *" @bind-Value="Model.Stato"
+                        Variant="Variant.Outlined" Required="true" Dense="true">
+                        <MudSelectItem Value="(StatoStep?)StatoStep.Eseguito">
+                            <div class="d-flex align-center gap-1">
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" />
+                                Eseguito
+                            </div>
+                        </MudSelectItem>
+                        <MudSelectItem Value="(StatoStep?)StatoStep.NonOk">
+                            <div class="d-flex align-center gap-1">
+                                <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Size="Size.Small" />
+                                Non OK
+                            </div>
+                        </MudSelectItem>
+                        <MudSelectItem Value="(StatoStep?)StatoStep.Annullato">
+                            <div class="d-flex align-center gap-1">
+                                <MudIcon Icon="@Icons.Material.Filled.Block" Color="Color.Default" Size="Size.Small" />
+                                Annullato
+                            </div>
+                        </MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                @if (_valori.Any())
+                {
+                    <MudItem xs="12">
+                        <MudSelect T="int?" Label="Valore attributo" @bind-Value="Model.IDAttributoValore"
+                            Variant="Variant.Outlined" Dense="true" Clearable="true"
+                            AnchorOrigin="Origin.BottomLeft">
+                            <MudSelectItem Value="(int?)null">— Non specificato —</MudSelectItem>
+                            @foreach (var v in _valori)
+                            {
+                                <MudSelectItem Value="(int?)v.Id">@v.Codice — @v.Descrizione</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                }
+
+                <MudItem xs="12">
+                    <MudTextField T="string" Label="Valore libero" @bind-Value="Model.ValoreRegistrato"
+                        Variant="Variant.Outlined" Dense="true" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField T="string" Label="Note" @bind-Value="Model.Nota"
+                        Variant="Variant.Outlined" Dense="true" Lines="3" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudDatePicker Label="Data prossimo step"
+                        Date="_dataProssimo"
+                        DateChanged="OnDataChanged"
+                        Variant="Variant.Outlined"
+                        Editable="true" DateFormat="dd/MM/yyyy" />
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Annulla</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Submit">Salva</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public StepProgressModel Model { get; set; } = new();
+    [Parameter] public int? IDAttributo { get; set; }
+
+    private MudForm _form = null!;
+    private List<AttributoValoreDto> _valori = [];
+    private DateTime? _dataProssimo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (IDAttributo.HasValue)
+            _valori = await Factory.GetValoriAttributoAsync(IDAttributo.Value);
+        if (Model.DataProssimoStep.HasValue)
+            _dataProssimo = Model.DataProssimoStep.Value.ToDateTime(TimeOnly.MinValue);
+    }
+
+    private void OnDataChanged(DateTime? val)
+    {
+        _dataProssimo = val;
+        Model.DataProssimoStep = val.HasValue ? DateOnly.FromDateTime(val.Value) : null;
+    }
+
+    private async Task Submit()
+    {
+        await _form.Validate();
+        if (!_form.IsValid) return;
+        MudDialog.Close(DialogResult.Ok(Model));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

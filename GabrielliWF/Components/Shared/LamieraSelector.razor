@@ -1,0 +1,63 @@
+@inject FactoryLookupService Factory
+
+<MudAutocomplete T="LamieraDto"
+    Label="Lamiera (lotto)"
+    Value="Selected"
+    ValueChanged="OnValueChanged"
+    SearchFunc="SearchAsync"
+    ToStringFunc="@(l => l is null ? "" : $"{l.CrCod} - {l.PaCod} - {l.PaDsc}")"
+    MinCharacters="2"
+    Placeholder="Cerca per lotto, codice o descrizione..."
+    Clearable="true"
+    Variant="Variant.Outlined"
+    CoerceText="false"
+    ShowProgressIndicator="true"
+    ResetValueOnEmptyText="true">
+    <ItemTemplate>
+        <div class="d-flex flex-column">
+            <MudText Typo="Typo.body2"><b>@context.CrCod</b> — @context.PaCod</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@context.PaDsc | Disp: @context.QtaDisp.ToString("N0") — @context.MgCod/@context.LcCod</MudText>
+        </div>
+    </ItemTemplate>
+    <NoItemsTemplate>
+        <MudText Typo="Typo.caption" Class="px-4 py-2">Nessun risultato</MudText>
+    </NoItemsTemplate>
+</MudAutocomplete>
+
+@if (Selected is not null)
+{
+    <MudPaper Class="mt-2 pa-3" Elevation="0" Style="background:var(--mud-palette-background-grey)">
+        <MudGrid Spacing="1">
+            <MudItem xs="6"><MudText Typo="Typo.caption"><b>Lotto:</b> @Selected.CrCod</MudText></MudItem>
+            <MudItem xs="6"><MudText Typo="Typo.caption"><b>Codice:</b> @Selected.PaCod</MudText></MudItem>
+            <MudItem xs="12"><MudText Typo="Typo.caption"><b>Descrizione:</b> @Selected.PaDsc</MudText></MudItem>
+            <MudItem xs="4"><MudText Typo="Typo.caption"><b>Disponibile:</b> @Selected.QtaDisp.ToString("N0")</MudText></MudItem>
+            <MudItem xs="4"><MudText Typo="Typo.caption"><b>Magazz.:</b> @Selected.MgCod / @Selected.LcCod</MudText></MudItem>
+            <MudItem xs="4"><MudText Typo="Typo.caption"><b>Qualità:</b> @(Selected.JdeQuality ?? "—") @Selected.QualityDesc</MudText></MudItem>
+        </MudGrid>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public LamieraDto? Value { get; set; }
+    [Parameter] public EventCallback<LamieraDto?> ValueChanged { get; set; }
+
+    private LamieraDto? Selected { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (Value != Selected) Selected = Value;
+    }
+
+    private async Task<IEnumerable<LamieraDto>> SearchAsync(string filter, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(filter) || filter.Length < 2) return [];
+        return await Factory.SearchLamiereAsync(filter, 30);
+    }
+
+    private async Task OnValueChanged(LamieraDto? val)
+    {
+        Selected = val;
+        await ValueChanged.InvokeAsync(val);
+    }
+}

@@ -1,0 +1,140 @@
+<div class="@(Compact ? "wfc-compact" : "wfc-full")">
+    @{
+        var firstOpen = Steps.FirstOrDefault(s => s.Stato == StatoStep.Aperto);
+    }
+    @foreach (var (step, idx) in Steps.Select((s, i) => (s, i)))
+    {
+        var isNext = step.ID == firstOpen?.ID;
+        var nome = step.StepDef?.Nome ?? step.NomeCustom ?? $"Step {step.Ordine}";
+
+        @if (Compact)
+        {
+            <MudTooltip Text="@nome" Placement="Placement.Bottom">
+                <div class="wfc-dot @GetDotClass(step.Stato, isNext) @(CanClick(step) ? "wfc-clickable" : "")"
+                     @onclick="@(() => { if (CanClick(step)) OnRegisterProgress.InvokeAsync(step); })">
+                </div>
+            </MudTooltip>
+        }
+        else
+        {
+            <MudTooltip Placement="Placement.Bottom" Arrow="true">
+                <TooltipContent>
+                    <div style="max-width:240px; text-align:left; padding:2px 4px">
+                        <div style="font-weight:600; margin-bottom:3px">@nome</div>
+                        @if (!string.IsNullOrEmpty(step.ValoreRegistrato))
+                        { <div style="font-size:0.82em">Valore: @step.ValoreRegistrato</div> }
+                        @if (!string.IsNullOrEmpty(step.Nota))
+                        { <div style="font-size:0.82em">Note: @step.Nota</div> }
+                        @if (step.DataEsecuzione.HasValue)
+                        { <div style="font-size:0.82em">Eseguito: @step.DataEsecuzione.Value.ToString("dd/MM/yyyy")</div> }
+                        @if (step.DataProssimoStep.HasValue)
+                        { <div style="font-size:0.82em; color:#fb8c00">Prossimo: @step.DataProssimoStep.Value.ToString("dd/MM/yyyy")</div> }
+                    </div>
+                </TooltipContent>
+                <ChildContent>
+                    <div class="wfc-chip @GetChipClass(step.Stato, isNext) @(CanClick(step) ? "wfc-clickable" : "")"
+                         @onclick="@(() => { if (CanClick(step)) OnRegisterProgress.InvokeAsync(step); })">
+                        <span class="wfc-chip-label">@nome</span>
+                    </div>
+                </ChildContent>
+            </MudTooltip>
+            @if (idx < Steps.Count - 1)
+            {
+                <span class="wfc-sep">›</span>
+            }
+        }
+    }
+</div>
+
+<style>
+    .wfc-full {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 2px;
+        row-gap: 4px;
+    }
+    .wfc-compact {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 3px;
+    }
+    /* Chip full */
+    .wfc-chip {
+        display: inline-flex;
+        align-items: center;
+        height: 22px;
+        padding: 0 10px;
+        border-radius: 11px;
+        font-size: 0.71rem;
+        font-weight: 600;
+        white-space: nowrap;
+        letter-spacing: 0.01em;
+        user-select: none;
+        transition: filter 0.12s, box-shadow 0.12s;
+    }
+    .wfc-chip-eseguito  { background: #43a047; color: #fff; }
+    .wfc-chip-nonok     { background: #e53935; color: #fff; }
+    .wfc-chip-annullato { background: #eeeeee; color: #aaa; text-decoration: line-through; }
+    .wfc-chip-next      { background: #fb8c00; color: #fff; box-shadow: 0 1px 6px rgba(251,140,0,.30); }
+    .wfc-chip-aperto    { background: #f0f0f0; color: #888; border: 1px solid #e0e0e0; }
+    .wfc-chip-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 150px;
+        display: block;
+    }
+    .wfc-clickable { cursor: pointer; }
+    .wfc-clickable:hover { filter: brightness(0.87); }
+    /* Separatore */
+    .wfc-sep {
+        font-size: 0.9rem;
+        color: #ccc;
+        margin: 0 1px;
+        flex-shrink: 0;
+        line-height: 22px;
+        user-select: none;
+    }
+    /* Dot compact */
+    .wfc-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        flex-shrink: 0;
+        transition: filter 0.12s;
+    }
+    .wfc-dot-eseguito  { background: #43a047; }
+    .wfc-dot-nonok     { background: #e53935; }
+    .wfc-dot-annullato { background: #bdbdbd; }
+    .wfc-dot-next      { background: #fb8c00; }
+    .wfc-dot-aperto    { background: #e0e0e0; }
+    .wfc-clickable.wfc-dot:hover { filter: brightness(0.8); cursor: pointer; }
+</style>
+
+@code {
+    [Parameter] public List<WfStep> Steps { get; set; } = [];
+    [Parameter] public EventCallback<WfStep> OnRegisterProgress { get; set; }
+    [Parameter] public bool Compact { get; set; }
+
+    private bool CanClick(WfStep step) =>
+        OnRegisterProgress.HasDelegate && step.Stato != StatoStep.Annullato;
+
+    private string GetChipClass(StatoStep stato, bool isNext) => stato switch
+    {
+        StatoStep.Eseguito  => "wfc-chip-eseguito",
+        StatoStep.NonOk     => "wfc-chip-nonok",
+        StatoStep.Annullato => "wfc-chip-annullato",
+        _ when isNext       => "wfc-chip-next",
+        _                   => "wfc-chip-aperto"
+    };
+
+    private string GetDotClass(StatoStep stato, bool isNext) => stato switch
+    {
+        StatoStep.Eseguito  => "wfc-dot-eseguito",
+        StatoStep.NonOk     => "wfc-dot-nonok",
+        StatoStep.Annullato => "wfc-dot-annullato",
+        _ when isNext       => "wfc-dot-next",
+        _                   => "wfc-dot-aperto"
+    };
+}

@@ -1,0 +1,266 @@
+@page "/impegni/nuovo"
+@inject ImpegnoService ImpegnoService
+@inject WorkflowService WorkflowService
+@inject TemplateService TemplateService
+@inject FactoryLookupService Factory
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<PageTitle>Nuovo Impegno</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h5" Class="mb-4">
+        <MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-2" />Nuovo Impegno Lamiera
+    </MudText>
+
+    @if (_dbError is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-3">
+            <b>Errore connessione Intesi-FACTORY:</b> @_dbError
+        </MudAlert>
+    }
+
+    <MudForm @ref="_form" Model="_model">
+        <MudGrid Spacing="3">
+            <!-- Sezione lamiera -->
+            <MudItem xs="12">
+                <MudPaper Elevation="1" Class="pa-4 section-card">
+                    <div class="section-header">
+                        <span class="section-num">1</span>
+                        <MudText Typo="Typo.subtitle1"><b>Lamiera</b></MudText>
+                    </div>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="9">
+                            <LamieraSelector Value="_lamiera" ValueChanged="OnLamieraChanged" />
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudNumericField T="decimal?" Label="Quantità *" @bind-Value="_model.Quantita"
+                                Variant="Variant.Outlined" Dense="true" Min="0" Format="N2"
+                                Required="true" RequiredError="Inserire quantità" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField T="string" Label="Note" @bind-Value="_model.Note"
+                                Variant="Variant.Outlined" Dense="true" Lines="2" />
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Sezione riferimenti cliente/ordine/riga -->
+            <MudItem xs="12">
+                <MudPaper Elevation="1" Class="pa-4 section-card">
+                    <div class="d-flex justify-space-between align-center mb-3">
+                        <div class="section-header" style="margin-bottom:0">
+                            <span class="section-num">2</span>
+                            <MudText Typo="Typo.subtitle1"><b>Riferimenti Cliente / Ordine / Riga</b></MudText>
+                        </div>
+                        <MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.Add"
+                            OnClick="AddRiferimento">Aggiungi riferimento</MudButton>
+                    </div>
+
+                    @for (int i = 0; i < _model.Riferimenti.Count; i++)
+                    {
+                        var idx = i;
+                        var rif = _model.Riferimenti[idx];
+                        <div class="ref-card">
+                            <div class="d-flex justify-space-between align-center mb-2">
+                                <MudText Typo="Typo.caption"><b>Riferimento @(idx + 1)</b></MudText>
+                                @if (_model.Riferimenti.Count > 1)
+                                {
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                        Color="Color.Error" OnClick="@(() => RemoveRiferimento(idx))" />
+                                }
+                            </div>
+                            <CascadeClienteCommessaRiga Value="rif" ValueChanged="@(val => OnRifChanged(idx, val))" />
+                            <MudNumericField T="decimal" Label="Qtà riferimento" @bind-Value="rif.Quantita"
+                                Variant="Variant.Outlined" Dense="true" Min="0" Format="N2" Class="mt-2" />
+                        </div>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <!-- Sezione workflow -->
+            <MudItem xs="12">
+                <MudPaper Elevation="1" Class="pa-4 section-card">
+                    <div class="section-header">
+                        <span class="section-num">3</span>
+                        <MudText Typo="Typo.subtitle1"><b>Workflow di Qualità</b></MudText>
+                    </div>
+
+                    <MudGrid Spacing="2" Class="mb-3">
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Nome workflow (opz.)" @bind-Value="_workflowModel.Nome"
+                                Variant="Variant.Outlined" Dense="true" />
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="WfTemplate?" Label="Carica da template"
+                                Value="_templateSelezionato" ValueChanged="OnTemplateChanged"
+                                ToStringFunc="@(t => t?.Nome ?? "")"
+                                Variant="Variant.Outlined" Dense="true" Clearable="true"
+                                AnchorOrigin="Origin.BottomLeft">
+                                <MudSelectItem Value="(WfTemplate?)null">— Nessun template —</MudSelectItem>
+                                @foreach (var t in _templates)
+                                {
+                                    <MudSelectItem Value="(WfTemplate?)t">@t.Nome</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                    </MudGrid>
+
+                    <StepEditor Steps="_workflowModel.Steps" StepsChanged="@(s => _workflowModel.Steps = s)" />
+
+                    <MudDivider Class="my-3" />
+                    <MudCheckBox T="bool" @bind-Value="_workflowModel.SalvaTemplate" Label="Salva come template" />
+                    @if (_workflowModel.SalvaTemplate)
+                    {
+                        <MudTextField T="string" Label="Nome template *" @bind-Value="_workflowModel.NomeTemplate"
+                            Variant="Variant.Outlined" Dense="true" Class="mt-2"
+                            Required="true" RequiredError="Inserire il nome del template" />
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <!-- Azioni -->
+            <MudItem xs="12" Class="d-flex justify-end gap-2 pb-4">
+                <MudButton Variant="Variant.Outlined" OnClick="@(() => Nav.NavigateTo("/"))">Annulla</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Submit"
+                    Disabled="_saving" StartIcon="@Icons.Material.Filled.Save">
+                    @(_saving ? "Salvataggio..." : "Crea Impegno")
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudForm>
+</MudContainer>
+
+<style>
+    .section-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+    .section-num {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: #1976d2;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.82rem;
+        flex-shrink: 0;
+    }
+    .section-card {
+        border-top: 3px solid #1976d2;
+        border-radius: 6px !important;
+    }
+    .ref-card {
+        border: 1px solid rgba(0,0,0,0.09);
+        border-radius: 6px;
+        padding: 14px;
+        margin-bottom: 10px;
+        background: rgba(25,118,210,0.02);
+    }
+</style>
+
+@code {
+    private MudForm _form = null!;
+    private ImpegnoCreateModel _model = new();
+    private WorkflowCreateModel _workflowModel = new();
+    private LamieraDto? _lamiera;
+    private WfTemplate? _templateSelezionato;
+    private List<WfTemplate> _templates = [];
+    private bool _saving;
+    private string? _dbError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _templates = await TemplateService.GetAllAsync();
+        try
+        {
+            await Factory.GetClientiAsync("test");
+        }
+        catch (Exception ex)
+        {
+            _dbError = ex.Message;
+        }
+    }
+
+    private void OnLamieraChanged(LamieraDto? val)
+    {
+        _lamiera = val;
+        _model.IdCrn = val?.IdCrn;
+        _model.CrCod = val?.CrCod;
+        _model.PaCod = val?.PaCod;
+        _model.PaDsc = val?.PaDsc;
+        _model.JdeQuality = val?.JdeQuality;
+        _model.QualityDesc = val?.QualityDesc;
+    }
+
+    private void AddRiferimento() => _model.Riferimenti.Add(new());
+    private void RemoveRiferimento(int idx) => _model.Riferimenti.RemoveAt(idx);
+    private void OnRifChanged(int idx, RiferimentoModel? val)
+    {
+        if (val is not null) _model.Riferimenti[idx] = val;
+    }
+
+    private async Task OnTemplateChanged(WfTemplate? tpl)
+    {
+        _templateSelezionato = tpl;
+        if (tpl is null) { _workflowModel.Steps = []; return; }
+
+        var full = await TemplateService.GetByIdAsync(tpl.ID);
+        if (full is null) return;
+        _workflowModel.IDTemplateCaricato = tpl.ID;
+        _workflowModel.Steps = full.Steps.OrderBy(s => s.Ordine).Select(s => new WorkflowStepModel
+        {
+            Ordine = s.Ordine,
+            IDStepDef = s.IDStepDef,
+            NomeStep = s.StepDef?.Nome ?? s.NomeCustom ?? "",
+            IDAttributo = s.IDAttributo
+        }).ToList();
+    }
+
+    private async Task Submit()
+    {
+        await _form.Validate();
+        if (!_form.IsValid || !_model.IdCrn.HasValue)
+        {
+            Snackbar.Add("Verificare i dati obbligatori (lamiera e quantità)", Severity.Warning);
+            return;
+        }
+        if (_workflowModel.SalvaTemplate && string.IsNullOrWhiteSpace(_workflowModel.NomeTemplate))
+        {
+            Snackbar.Add("Inserire il nome del template", Severity.Warning);
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            // auto-create step defs per nuovi step liberi
+            await TemplateService.GetOrCreateStepDefsAsync(_workflowModel.Steps);
+
+            var idImpegno = await ImpegnoService.CreateAsync(_model, null);
+
+            if (_workflowModel.Steps.Count > 0)
+                await WorkflowService.CreateAsync(idImpegno, _workflowModel, null);
+
+            if (_workflowModel.SalvaTemplate && _workflowModel.Steps.Count > 0)
+                await TemplateService.SaveFromWorkflowAsync(_workflowModel, null);
+
+            Snackbar.Add("Impegno creato con successo", Severity.Success);
+            Nav.NavigateTo($"/impegni/{idImpegno}");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Errore: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

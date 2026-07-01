@@ -1,0 +1,70 @@
+@inherits LayoutComponentBase
+
+<MudThemeProvider Theme="_theme" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0" Color="Color.Primary" Style="border-bottom:1px solid rgba(255,255,255,0.12)">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+            OnClick="@ToggleDrawer" />
+        <div class="ml-2 d-flex align-center gap-2">
+            <MudIcon Icon="@Icons.Material.Filled.Verified" Style="opacity:0.85; font-size:1.3rem" />
+            <div>
+                <MudText Typo="Typo.subtitle1" Style="font-weight:700; line-height:1.2; letter-spacing:0.02em">
+                    Gabrielli WF
+                </MudText>
+                <MudText Typo="Typo.caption" Style="opacity:0.7; line-height:1; letter-spacing:0.03em">
+                    QUALITÀ LAMIERE
+                </MudText>
+            </div>
+        </div>
+        <MudSpacer />
+        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+            Style="color:rgba(255,255,255,0.6); border-color:rgba(255,255,255,0.25); font-size:0.7rem">
+            v1.0
+        </MudChip>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2" Variant="DrawerVariant.Mini">
+        <MudNavMenu Class="mt-1">
+            <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+                Monitoraggio
+            </MudNavLink>
+            <MudNavLink Href="/avanzamento" Icon="@Icons.Material.Filled.AssignmentTurnedIn">
+                Avanzamento
+            </MudNavLink>
+            <MudDivider Class="my-1" />
+            <MudNavLink Href="/impegni/nuovo" Icon="@Icons.Material.Filled.AddCircleOutline">
+                Nuovo Impegno
+            </MudNavLink>
+            <MudNavLink Href="/templates" Icon="@Icons.Material.Filled.ContentCopy">
+                Template
+            </MudNavLink>
+        </MudNavMenu>
+    </MudDrawer>
+
+    <MudMainContent>
+        @Body
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    private MudTheme _theme = new MudTheme
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary          = "#1565c0",
+            PrimaryDarken    = "#0d47a1",
+            PrimaryLighten   = "#1976d2",
+            AppbarBackground = "#1565c0",
+            DrawerBackground = "#fafafa",
+            Surface          = "#ffffff",
+            Background       = "#f4f6f8",
+        }
+    };
+}

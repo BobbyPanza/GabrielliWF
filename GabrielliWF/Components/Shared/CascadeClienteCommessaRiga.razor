@@ -1,0 +1,126 @@
+@inject FactoryLookupService Factory
+
+<MudGrid Spacing="2">
+    <MudItem xs="12" md="4">
+        <MudAutocomplete T="ClienteDto"
+            Label="Cliente"
+            Value="_cliente"
+            ValueChanged="OnClienteChanged"
+            SearchFunc="SearchClientiAsync"
+            ToStringFunc="@(c => c is null ? "" : $"{c.CtCod} — {c.CtRag}")"
+            MinCharacters="0"
+            OpenOnFocus="true"
+            Clearable="true"
+            Variant="Variant.Outlined"
+            Placeholder="Cerca cliente..."
+            ShowProgressIndicator="true"
+            ResetValueOnEmptyText="true">
+            <ItemTemplate>
+                <MudText Typo="Typo.body2"><b>@context.CtCod</b> — @context.CtRag</MudText>
+            </ItemTemplate>
+            <NoItemsTemplate>
+                <MudText Typo="Typo.caption" Class="px-4 py-2">Nessun cliente trovato</MudText>
+            </NoItemsTemplate>
+        </MudAutocomplete>
+    </MudItem>
+
+    <MudItem xs="12" md="4">
+        <MudSelect T="CommessaDto"
+            Label="Commessa"
+            Value="_commessa"
+            ValueChanged="OnCommessaChanged"
+            ToStringFunc="@(o => o is null ? "" : $"{o.CoCod} — {o.CoDsc}")"
+            Disabled="@(_cliente is null || !_commesse.Any())"
+            Variant="Variant.Outlined"
+            AnchorOrigin="Origin.BottomLeft"
+            Placeholder="@(_cliente is null ? "Seleziona prima il cliente" : "Seleziona commessa")">
+            @foreach (var c in _commesse)
+            {
+                <MudSelectItem Value="c">
+                    <div>
+                        <span style="font-weight:500">@c.CoCod</span>
+                        @if (!string.IsNullOrEmpty(c.CoDsc)) { <span> — @c.CoDsc</span> }
+                        @if (!string.IsNullOrEmpty(c.CoRif)) { <span style="color:var(--mud-palette-text-secondary); font-size:0.85em"> [@c.CoRif]</span> }
+                    </div>
+                </MudSelectItem>
+            }
+        </MudSelect>
+    </MudItem>
+
+    <MudItem xs="12" md="4">
+        <MudSelect T="RigaOrdineDto"
+            Label="Riga ordine"
+            Value="_riga"
+            ValueChanged="OnRigaChanged"
+            ToStringFunc="@(r => r is null ? "" : $"{r.PaCod} — {r.PaDsc}")"
+            Disabled="@(_commessa is null || !_righe.Any())"
+            Variant="Variant.Outlined"
+            AnchorOrigin="Origin.BottomLeft"
+            Placeholder="@(_commessa is null ? "Seleziona prima la commessa" : "Seleziona riga")">
+            @foreach (var r in _righe)
+            {
+                <MudSelectItem Value="r">@r.PaCod — @r.PaDsc (@r.LqNta @r.PaUdm)</MudSelectItem>
+            }
+        </MudSelect>
+    </MudItem>
+</MudGrid>
+
+@code {
+    [Parameter] public RiferimentoModel? Value { get; set; }
+    [Parameter] public EventCallback<RiferimentoModel?> ValueChanged { get; set; }
+
+    private ClienteDto? _cliente;
+    private CommessaDto? _commessa;
+    private RigaOrdineDto? _riga;
+    private List<CommessaDto> _commesse = [];
+    private List<RigaOrdineDto> _righe = [];
+
+    private async Task<IEnumerable<ClienteDto>> SearchClientiAsync(string filter, CancellationToken ct)
+    {
+        var result = await Factory.GetClientiAsync(string.IsNullOrWhiteSpace(filter) ? null : filter);
+        return result;
+    }
+
+    private async Task OnClienteChanged(ClienteDto? val)
+    {
+        _cliente = val;
+        _commessa = null;
+        _riga = null;
+        _righe = [];
+        _commesse = val is not null ? await Factory.GetCommesseByClienteAsync(val.IdCli) : [];
+        StateHasChanged();
+        await NotifyChanged();
+    }
+
+    private async Task OnCommessaChanged(CommessaDto? val)
+    {
+        _commessa = val;
+        _riga = null;
+        _righe = val is not null ? await Factory.GetRigheByCommessaAsync(val.CoNum) : [];
+        StateHasChanged();
+        await NotifyChanged();
+    }
+
+    private async Task OnRigaChanged(RigaOrdineDto? val)
+    {
+        _riga = val;
+        await NotifyChanged();
+    }
+
+    private async Task NotifyChanged()
+    {
+        if (_cliente is null || _commessa is null || _riga is null)
+        {
+            await ValueChanged.InvokeAsync(null);
+            return;
+        }
+        var rif = Value ?? new RiferimentoModel();
+        rif.IdCli = _cliente.IdCli;
+        rif.CtRag = _cliente.CtRag;
+        rif.CoNum = _commessa.CoNum;
+        rif.CoCod = _commessa.CoCod;
+        rif.IdRow = _riga.IdRow;
+        rif.PaDscRiga = _riga.PaDsc;
+        await ValueChanged.InvokeAsync(rif);
+    }
+}

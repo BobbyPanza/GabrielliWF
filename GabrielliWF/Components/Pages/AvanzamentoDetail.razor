@@ -1,0 +1,230 @@
+@page "/avanzamento/{Id:int}"
+@inject ImpegnoService ImpegnoService
+@inject WorkflowService WorkflowService
+@inject TemplateService TemplateService
+@inject FactoryLookupService Factory
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IDialogService Dialog
+
+<PageTitle>Avanzamento — Impegno @Id</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-4" />
+}
+else if (_impegno is null)
+{
+    <MudAlert Severity="Severity.Error">Impegno non trovato.</MudAlert>
+}
+else
+{
+    <MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+
+        <!-- Header -->
+        <MudPaper Elevation="2" Class="pa-4 mb-3">
+            <div class="d-flex justify-space-between align-center flex-wrap gap-2">
+                <div>
+                    <MudText Typo="Typo.h6">
+                        <MudIcon Icon="@Icons.Material.Filled.AssignmentTurnedIn" Class="mr-1" />
+                        @(_lamiera?.CrCod ?? _impegno.IDCRN.ToString())
+                        @if (!string.IsNullOrEmpty(_lamiera?.PaDsc))
+                        { <span style="font-weight:400; font-size:0.9em"> — @_lamiera.PaDsc</span> }
+                    </MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @_lamiera?.PaCod &nbsp;|&nbsp;
+                        Qtà: @_impegno.Quantita.ToString("N2") &nbsp;|&nbsp;
+                        Stato: <b>@_impegno.Stato</b>
+                        @if (!string.IsNullOrEmpty(_impegno.JdeQuality))
+                        { <span> &nbsp;|&nbsp; Qualità: <b>@_impegno.JdeQuality</b></span> }
+                    </MudText>
+                </div>
+                <div class="d-flex gap-2">
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                        StartIcon="@Icons.Material.Filled.Visibility"
+                        Href="@($"/impegni/{Id}")">Dettaglio</MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                        StartIcon="@Icons.Material.Filled.ArrowBack"
+                        OnClick="@(() => Nav.NavigateTo("/avanzamento"))">Lista</MudButton>
+                </div>
+            </div>
+
+            @if (_impegno.Riferimenti.Any())
+            {
+                <MudDivider Class="my-2" />
+                <div class="d-flex flex-wrap gap-2 mt-1">
+                    @foreach (var r in _impegno.Riferimenti)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+                            @(r.CtRag ?? $"CLI {r.IDCLI}") &nbsp;·&nbsp; @(r.CoCod ?? $"COM {r.CONUM}")
+                        </MudChip>
+                    }
+                </div>
+            }
+        </MudPaper>
+
+        <!-- Workflows con avanzamento -->
+        @foreach (var wf in _impegno.Workflows.OrderBy(w => w.DataCreazione))
+        {
+            <MudPaper Elevation="2" Class="pa-4 mb-3">
+                <div class="d-flex justify-space-between align-center mb-3">
+                    <div class="d-flex align-center gap-2">
+                        <MudText Typo="Typo.subtitle1">
+                            <b>@(wf.Nome ?? $"Workflow #{wf.ID}")</b>
+                        </MudText>
+                        <MudChip T="string" Size="Size.Small"
+                            Color="@(wf.Stato == StatoWorkflow.Completato ? Color.Success : wf.Stato == StatoWorkflow.Annullato ? Color.Default : Color.Primary)">
+                            @wf.Stato
+                        </MudChip>
+                    </div>
+                    @if (wf.Stato == StatoWorkflow.Aperto)
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                            StartIcon="@Icons.Material.Filled.Add"
+                            OnClick="@(() => OpenAddStep(wf.ID))">Aggiungi step</MudButton>
+                    }
+                </div>
+
+                <!-- Catena compatta -->
+                <WorkflowChain Steps="wf.Steps.OrderBy(s => s.Ordine).ToList()"
+                    OnRegisterProgress="@(step => RegisterProgress(step, wf.ID))" />
+
+                <!-- Step con pulsanti registrazione -->
+                <MudDivider Class="my-2" />
+                <div class="step-list">
+                @foreach (var step in wf.Steps.OrderBy(s => s.Ordine))
+                {
+                    var nome = step.StepDef?.Nome ?? step.NomeCustom ?? $"Step {step.Ordine}";
+                    var isNext = wf.Steps.OrderBy(s => s.Ordine).FirstOrDefault(s => s.Stato == StatoStep.Aperto)?.ID == step.ID;
+                    <div class="step-row @(isNext ? "step-row-next" : "")">
+                        <span class="step-num">@step.Ordine</span>
+                        <span class="step-name">@nome</span>
+                        <span class="step-stato step-@step.Stato.ToString().ToLower()">@step.Stato</span>
+                        @if (!string.IsNullOrEmpty(step.ValoreRegistrato))
+                        { <span class="step-val">@step.ValoreRegistrato</span> }
+                        @if (!string.IsNullOrEmpty(step.Nota))
+                        { <span class="step-note" title="@step.Nota">@(step.Nota.Length > 35 ? step.Nota[..35]+"…" : step.Nota)</span> }
+                        @if (step.DataEsecuzione.HasValue)
+                        { <span class="step-date">@step.DataEsecuzione.Value.ToString("dd/MM/yy")</span> }
+                        <span class="step-spacer"></span>
+                        @if (step.Stato != StatoStep.Annullato)
+                        {
+                            <MudButton Size="Size.Small"
+                                Variant="@(isNext ? Variant.Filled : Variant.Outlined)"
+                                Color="@(isNext ? Color.Primary : Color.Default)"
+                                StartIcon="@Icons.Material.Filled.Edit"
+                                OnClick="@(() => RegisterProgress(step, wf.ID))">
+                                @(step.Stato == StatoStep.Aperto ? "Registra" : "Modifica")
+                            </MudButton>
+                        }
+                    </div>
+                }
+                </div>
+            </MudPaper>
+        }
+
+        @if (!_impegno.Workflows.Any())
+        {
+            <MudAlert Severity="Severity.Info">Nessun workflow definito per questo impegno.</MudAlert>
+        }
+    </MudContainer>
+}
+
+<style>
+    .step-list { }
+    .step-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.82rem;
+        padding: 5px 10px;
+        border-radius: 5px;
+        margin-bottom: 2px;
+        flex-wrap: wrap;
+        transition: background 0.1s;
+    }
+    .step-row:nth-child(even) { background: rgba(0,0,0,0.016); }
+    .step-row:hover { background: rgba(0,0,0,0.04); }
+    .step-row-next {
+        background: #fff8e1 !important;
+        border-left: 3px solid #fb8c00;
+        padding-left: 8px;
+        box-shadow: 0 1px 5px rgba(251,140,0,.10);
+    }
+    .step-num    { font-weight: 700; color: #ccc; min-width: 20px; font-size: 0.75rem; text-align: right; flex-shrink: 0; }
+    .step-name   { font-weight: 500; flex: 1; min-width: 120px; }
+    .step-spacer { flex: 1; }
+    .step-val    { background: #f5f5f5; border-radius: 4px; padding: 1px 8px; font-size: 0.74rem; color: #555; }
+    .step-note   { color: #999; font-size: 0.74rem; font-style: italic; }
+    .step-date   { color: #aaa; font-size: 0.74rem; white-space: nowrap; }
+    .step-stato  { border-radius: 10px; padding: 2px 9px; font-size: 0.71rem; font-weight: 700; white-space: nowrap; letter-spacing: 0.02em; }
+    .step-aperto     { background: #e3f2fd; color: #1565c0; }
+    .step-eseguito   { background: #e8f5e9; color: #2e7d32; }
+    .step-nonok      { background: #ffebee; color: #c62828; }
+    .step-annullato  { background: #f5f5f5; color: #9e9e9e; }
+</style>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private WfImpegno? _impegno;
+    private LamieraDto? _lamiera;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        _loading = true;
+        _impegno = await ImpegnoService.GetByIdAsync(Id);
+        if (_impegno is not null)
+            _lamiera = await Factory.GetLamieraByIdCrnAsync(_impegno.IDCRN);
+        _loading = false;
+    }
+
+    private async Task RegisterProgress(WfStep step, int idWorkflow)
+    {
+        var model = new StepProgressModel
+        {
+            IDStep = step.ID,
+            NomeStep = step.StepDef?.Nome ?? step.NomeCustom ?? $"Step {step.Ordine}",
+            Stato = step.Stato == StatoStep.Aperto ? null : step.Stato,
+            IDAttributoValore = step.IDAttributoValore,
+            ValoreRegistrato = step.ValoreRegistrato,
+            Nota = step.Nota,
+            DataProssimoStep = step.DataProssimoStep
+        };
+
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var parameters = new DialogParameters
+        {
+            ["Model"] = model,
+            ["IDAttributo"] = step.IDAttributo
+        };
+        var dialog = await Dialog.ShowAsync<StepProgressDialog>("Registra avanzamento", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result!.Canceled && result.Data is StepProgressModel saved)
+        {
+            await WorkflowService.RegisterProgressAsync(saved, null);
+            Snackbar.Add("Avanzamento registrato", Severity.Success);
+            await Load();
+        }
+    }
+
+    private async Task OpenAddStep(int idWorkflow)
+    {
+        var steps = new List<WorkflowStepModel>();
+        var parameters = new DialogParameters { ["Steps"] = steps };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await Dialog.ShowAsync<AddStepDialog>("Aggiungi step", parameters, options);
+        var result = await dialog.Result;
+        if (!result!.Canceled && result.Data is WorkflowStepModel newStep)
+        {
+            await TemplateService.GetOrCreateStepDefsAsync([newStep]);
+            await WorkflowService.AddStepAsync(idWorkflow, newStep);
+            Snackbar.Add("Step aggiunto", Severity.Success);
+            await Load();
+        }
+    }
+}

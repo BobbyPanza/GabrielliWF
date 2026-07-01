@@ -1,0 +1,198 @@
+@page "/avanzamento"
+@inject ImpegnoService ImpegnoService
+@inject AppDbContext Db
+@inject NavigationManager Nav
+
+<PageTitle>Avanzamento Workflow</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-3">
+    <div class="d-flex justify-space-between align-center mb-2">
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.AssignmentTurnedIn" Class="mr-1" />Avanzamento Workflow
+        </MudText>
+    </div>
+
+    <!-- Filtri -->
+    <MudPaper Elevation="1" Class="pa-2 mb-2">
+        <MudGrid Spacing="1">
+            <MudItem xs="12" sm="4" md="3">
+                <MudTextField T="string" @bind-Value="_filtroLotto" Label="Lotto / Articolo"
+                    Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                    Immediate="true" DebounceInterval="200" />
+            </MudItem>
+            <MudItem xs="12" sm="4" md="3">
+                <MudTextField T="string" @bind-Value="_filtroCliente" Label="Cliente"
+                    Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                    Immediate="true" DebounceInterval="200" />
+            </MudItem>
+            <MudItem xs="12" sm="4" md="3">
+                <MudTextField T="string" @bind-Value="_filtroCommessa" Label="Commessa"
+                    Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                    Immediate="true" DebounceInterval="200" />
+            </MudItem>
+            <MudItem xs="12" sm="12" md="3" Class="d-flex align-center gap-2">
+                <MudCheckBox T="bool" @bind-Value="_soloConStepAperti" Label="Solo con step aperti" Dense="true" />
+                <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                    StartIcon="@Icons.Material.Filled.FilterAltOff" OnClick="ResetFiltri">Reset</MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (!ImpegniFiltrati.Any())
+    {
+        <MudAlert Severity="Severity.Info">Nessun impegno trovato.</MudAlert>
+    }
+    else
+    {
+        <div class="ava-scroll-area">
+            @foreach (var imp in ImpegniFiltrati)
+            {
+                var stepAperti = GetStepAperti(imp.ID);
+                <div class="ava-card @(stepAperti == 0 ? "ava-card-done" : "")"
+                     @onclick="@(() => Nav.NavigateTo($"/avanzamento/{imp.ID}"))">
+                    <div class="ava-info">
+                        <span class="ava-lotto">@imp.CrCod</span>
+                        <span class="ava-mat">
+                            <span class="ava-mat-cod">@imp.PaCod</span>
+                            @if (!string.IsNullOrEmpty(imp.PaDsc))
+                            { <span class="ava-mat-dsc">&nbsp;@(imp.PaDsc.Length > 50 ? imp.PaDsc[..50] + "…" : imp.PaDsc)</span> }
+                        </span>
+                        @if (!string.IsNullOrEmpty(imp.JdeQuality))
+                        { <span class="ava-qual">@imp.JdeQuality</span> }
+                        @if (imp.Riferimenti.Any())
+                        {
+                            <span class="ava-ref">
+                                @string.Join(" · ", imp.Riferimenti.Select(r => r.CtRag).Where(x => !string.IsNullOrEmpty(x)).Distinct().Take(2))
+                                @{var commesse = imp.Riferimenti.Select(r => r.CoCod).Where(x => !string.IsNullOrEmpty(x)).Distinct().Take(2).ToList();}
+                                @if (commesse.Any()) { <span class="ava-commessa">&nbsp;/ @string.Join(", ", commesse)</span> }
+                            </span>
+                        }
+                        <span class="ava-spacer"></span>
+                        @if (stepAperti > 0)
+                        { <span class="ava-badge-open">@stepAperti step aperti</span> }
+                        else
+                        { <span class="ava-badge-done">completato</span> }
+                        <span class="ava-data">@imp.DataImpegno.ToString("dd/MM/yy")</span>
+                    </div>
+                    @if (_workflowChains.TryGetValue(imp.ID, out var wfList) && wfList.Any())
+                    {
+                        <div class="ava-chain">
+                            @foreach (var wf in wfList)
+                            {
+                                <WorkflowChain Steps="wf.Steps.OrderBy(s => s.Ordine).ToList()"
+                                    OnRegisterProgress="@(step => Nav.NavigateTo($"/avanzamento/{imp.ID}"))" />
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</MudContainer>
+
+<style>
+    .ava-scroll-area {
+        overflow-y: auto;
+        max-height: calc(100vh - 260px);
+        padding-right: 3px;
+    }
+    .ava-card {
+        background: var(--mud-palette-surface);
+        border: 1px solid rgba(0,0,0,0.07);
+        border-left: 4px solid #fb8c00;
+        border-radius: 6px;
+        padding: 8px 14px 6px;
+        margin-bottom: 5px;
+        cursor: pointer;
+        transition: box-shadow 0.15s, transform 0.12s;
+    }
+    .ava-card:hover {
+        box-shadow: 0 3px 12px rgba(0,0,0,0.10);
+        transform: translateX(2px);
+    }
+    .ava-card-done { border-left-color: #43a047; opacity: 0.85; }
+    .ava-info {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        font-size: 0.82rem;
+        line-height: 1.5;
+    }
+    .ava-lotto {
+        font-weight: 700;
+        font-size: 0.86rem;
+        color: #e65100;
+        white-space: nowrap;
+        min-width: 82px;
+        letter-spacing: 0.01em;
+    }
+    .ava-mat      { flex: 1; min-width: 130px; }
+    .ava-mat-cod  { font-weight: 600; color: var(--mud-palette-text-primary); }
+    .ava-mat-dsc  { color: var(--mud-palette-text-secondary); font-size: 0.79rem; }
+    .ava-qual     { background: #fff3e0; color: #bf360c; border-radius: 10px; padding: 2px 9px; font-size: 0.71rem; font-weight: 700; white-space: nowrap; letter-spacing: 0.03em; }
+    .ava-ref      { color: var(--mud-palette-text-secondary); font-size: 0.78rem; }
+    .ava-commessa { color: #1976d2; font-weight: 500; }
+    .ava-spacer   { flex: 1; }
+    .ava-badge-open { background: #fff3e0; color: #bf360c; border-radius: 10px; padding: 2px 10px; font-size: 0.71rem; font-weight: 700; white-space: nowrap; }
+    .ava-badge-done { background: #e8f5e9; color: #2e7d32; border-radius: 10px; padding: 2px 10px; font-size: 0.71rem; font-weight: 700; }
+    .ava-data  { color: #aaa; font-size: 0.74rem; white-space: nowrap; }
+    .ava-chain {
+        padding: 5px 2px 3px;
+        border-top: 1px solid rgba(0,0,0,0.06);
+        margin-top: 5px;
+    }
+</style>
+
+@code {
+    private List<ImpegnoListItem> _impegni = [];
+    private Dictionary<int, List<WfWorkflow>> _workflowChains = [];
+    private bool _loading = true;
+
+    private string? _filtroLotto;
+    private string? _filtroCliente;
+    private string? _filtroCommessa;
+    private bool _soloConStepAperti = true;
+
+    private IEnumerable<ImpegnoListItem> ImpegniFiltrati =>
+        _impegni.Where(i =>
+            i.Stato == StatoImpegno.Aperto
+            && (string.IsNullOrEmpty(_filtroLotto) ||
+                i.CrCod.Contains(_filtroLotto, StringComparison.OrdinalIgnoreCase) ||
+                (i.PaCod?.Contains(_filtroLotto, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (i.PaDsc?.Contains(_filtroLotto, StringComparison.OrdinalIgnoreCase) ?? false))
+            && (string.IsNullOrEmpty(_filtroCliente) ||
+                i.Riferimenti.Any(r => r.CtRag?.Contains(_filtroCliente, StringComparison.OrdinalIgnoreCase) ?? false))
+            && (string.IsNullOrEmpty(_filtroCommessa) ||
+                i.Riferimenti.Any(r => r.CoCod?.Contains(_filtroCommessa, StringComparison.OrdinalIgnoreCase) ?? false))
+            && (!_soloConStepAperti || GetStepAperti(i.ID) > 0));
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        _loading = true;
+        _impegni = await ImpegnoService.GetListAsync();
+        _workflowChains = Db.Workflows
+            .Include(w => w.Steps).ThenInclude(s => s.StepDef)
+            .AsEnumerable()
+            .GroupBy(w => w.IDImpegno)
+            .ToDictionary(g => g.Key, g => g.ToList());
+        _loading = false;
+    }
+
+    private int GetStepAperti(int idImpegno) =>
+        _workflowChains.TryGetValue(idImpegno, out var chains)
+            ? chains.Sum(wf => wf.Steps.Count(s => s.Stato == StatoStep.Aperto))
+            : 0;
+
+    private void ResetFiltri()
+    {
+        _filtroLotto = null; _filtroCliente = null; _filtroCommessa = null;
+        _soloConStepAperti = true;
+    }
+}
