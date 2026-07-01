@@ -160,6 +160,23 @@ public class FactoryLookupService(IConfiguration config)
         return (await conn.QueryAsync<DisponibilitaDto>(sql)).ToList();
     }
 
+    public async Task<Dictionary<string, string>> GetAlphaDescriptionsAsync()
+    {
+        using var conn = Open();
+        var sql = """
+            SELECT ISNULL(CodiceFactory,'') AS CodiceFactory,
+                   ISNULL(Descrizione,'')   AS Descrizione
+            FROM X_JDE_AttributiAnagrafica
+            WHERE CodiceFactory LIKE 'Alpha%'
+              AND LEN(ISNULL(CodiceFactory,'')) > 0
+            """;
+        var rows = await conn.QueryAsync<(string CodiceFactory, string Descrizione)>(sql);
+        return rows.ToDictionary(
+            r => "A" + r.CodiceFactory["Alpha".Length..],
+            r => r.Descrizione
+        );
+    }
+
     public async Task<List<AttributoValoreDto>> GetValoriAttributoAsync(int idAttributo)
     {
         using var conn = Open();

@@ -121,26 +121,26 @@
                     </CellTemplate>
                 </PropertyColumn>
 
-                <!-- Alpha combinati -->
-                <TemplateColumn Title="Attributi" Sortable="false" Filterable="false" Groupable="false">
-                    <CellTemplate>
-                        <div class="disp-alphas">
-                            @foreach (var a in GetAlphas(context.Item))
-                            {
-                                <span class="disp-alpha">@a</span>
-                            }
-                        </div>
-                    </CellTemplate>
-                </TemplateColumn>
+                <!-- Alpha 1–8, 13, 14 — titolo = descrizione attributo da DB -->
+                <PropertyColumn Property="x => x.A1"  Title="@At("A1")"  Sortable="true" Groupable="true" />
+                <PropertyColumn Property="x => x.A2"  Title="@At("A2")"  Sortable="true" Groupable="true" />
+                <PropertyColumn Property="x => x.A3"  Title="@At("A3")"  Sortable="true" Groupable="true" />
+                <PropertyColumn Property="x => x.A4"  Title="@At("A4")"  Sortable="true" Groupable="true" />
+                <PropertyColumn Property="x => x.A5"  Title="@At("A5")"  Sortable="true" Groupable="true" />
+                <PropertyColumn Property="x => x.A6"  Title="@At("A6")"  Sortable="true" Groupable="true" />
+                <PropertyColumn Property="x => x.A7"  Title="@At("A7")"  Sortable="true" Groupable="true" />
+                <PropertyColumn Property="x => x.A8"  Title="@At("A8")"  Sortable="true" Groupable="true" />
+                <PropertyColumn Property="x => x.A13" Title="@At("A13")" Sortable="true" Groupable="true" />
+                <PropertyColumn Property="x => x.A14" Title="@At("A14")" Sortable="true" Groupable="true" />
 
                 <!-- Azione -->
                 <TemplateColumn Title="" Sortable="false" Filterable="false" Groupable="false" StickyRight="true">
                     <CellTemplate>
-                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
-                            StartIcon="@Icons.Material.Filled.AddCircleOutline"
-                            OnClick="@(() => Impegna(context.Item))">
-                            Impegna
-                        </MudButton>
+                        <MudTooltip Text="Crea impegno" Placement="Placement.Left">
+                            <MudIconButton Icon="@Icons.Material.Filled.AddCircleOutline"
+                                Size="Size.Small" Color="Color.Primary"
+                                OnClick="@(() => Impegna(context.Item))" />
+                        </MudTooltip>
                     </CellTemplate>
                 </TemplateColumn>
 
@@ -168,6 +168,9 @@
     private List<DisponibilitaDto> _rows = [];
     private bool _loading = true;
     private string? _search;
+    private Dictionary<string, string> _alphaDescs = new();
+
+    private string At(string key) => _alphaDescs.GetValueOrDefault(key, key);
 
     private Func<DisponibilitaDto, bool> QuickFilter => x =>
         string.IsNullOrEmpty(_search) ||
@@ -180,14 +183,13 @@
     protected override async Task OnInitializedAsync()
     {
         _loading = true;
-        _rows = await Factory.GetDisponibilitaAsync();
+        var descsTask = Factory.GetAlphaDescriptionsAsync();
+        var rowsTask  = Factory.GetDisponibilitaAsync();
+        await Task.WhenAll(descsTask, rowsTask);
+        _alphaDescs = await descsTask;
+        _rows       = await rowsTask;
         _loading = false;
     }
-
-    private static IEnumerable<string> GetAlphas(DisponibilitaDto r) =>
-        new[] { r.A1, r.A2, r.A3, r.A4, r.A5, r.A6, r.A7, r.A8, r.A13, r.A14 }
-        .Where(a => !string.IsNullOrEmpty(a))
-        .Distinct()!;
 
     private async Task Impegna(DisponibilitaDto row)
     {
