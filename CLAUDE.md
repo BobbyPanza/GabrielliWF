@@ -81,8 +81,8 @@ Tutte le query cross-DB usano la sintassi `[Intesi-FACTORY].dbo.TableName`.
 ## Connessioni (appsettings.json)
 
 ```json
-"DefaultConnection": "Server=localhost;Database=GabrielliWF;User Id=sa;Password=Intsupport1;TrustServerCertificate=true;"
-"IntesiFactory":     "Server=localhost;Database=Intesi-FACTORY;User Id=sa;Password=Intsupport1;TrustServerCertificate=true;"
+"DefaultConnection": "Server=localhost;Database=GabrielliWF;User Id=sa;Password=PASSWORD;TrustServerCertificate=true;"
+"IntesiFactory":     "Server=localhost;Database=Intesi-FACTORY;User Id=sa;Password=PASSWORD;TrustServerCertificate=true;"
 ```
 
 ## Dipendenze principali
