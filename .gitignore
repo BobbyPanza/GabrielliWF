@@ -13,6 +13,7 @@ publish/
 *.publish.xml
 
 ## Secrets / config locali (non committare credenziali)
+appsettings.json
 appsettings.Development.json
 appsettings.Production.json
 secrets.json
